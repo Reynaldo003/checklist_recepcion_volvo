@@ -19,10 +19,10 @@ import fondo3 from "./assets/fondo3.jpeg";
 import { apiRecepcionVolvo } from "./lib/apiRecepcionVolvo";
 
 const ASESORES_VOLVO = [
-  "Enrique Vazquez Islas",
-  "Ricardo Platas",
-  "Verónica Del Rayo Galindo León",
-  "Julio Camacho Barragán",
+  "Edgar Valencia",
+  "Carlos Macedonio",
+  "Luis Enrique Ramos",
+  "Juan Carlos Ubaldo",
 ];
 
 const METODOS_CONTACTO = [
