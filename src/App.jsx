@@ -498,7 +498,7 @@ export default function App() {
                     />
                   </Field>
 
-                  <Field label="Asesor" icon={UserRound} error={errores.asesor}>
+                  <Field label="PST" icon={UserRound} error={errores.asesor}>
                     <Select
                       value={form.asesor_servicio}
                       error={errores.asesor}
