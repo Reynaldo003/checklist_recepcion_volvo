@@ -13,11 +13,16 @@ import {
   Phone,
   Save,
   UserRound,
+  Sparkles,
+  ArrowRight,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-import fondo3 from "./assets/fondo3.jpeg";
 import { apiRecepcionVolvo } from "./lib/apiRecepcionVolvo";
 
+// ─── CONSTANTES ──────────────────────────────────────────────────────────────
 const ASESORES_VOLVO = [
   "Edgar Valencia",
   "Carlos Macedonio",
@@ -104,6 +109,7 @@ const FORM_INICIAL = {
   observaciones: "",
 };
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function dateTimeLocalActual() {
   const date = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -137,17 +143,17 @@ function cls(...values) {
   return values.filter(Boolean).join(" ");
 }
 
-function Field({ label, icon: Icon, error, children, className = "" }) {
+// ─── COMPONENTES REUTILIZABLES (con el nuevo estilo) ──────────────────────
+function Campo({ label, requerido, error, ayuda, children, className = "" }) {
   return (
-    <div className={className}>
-      <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-white/70">
-        {Icon ? <Icon className="h-3.5 w-3.5 text-white/45" /> : null}
+    <div className={cls("min-w-0", className)}>
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">
         {label}
+        {requerido && <span className="ml-1 text-amber-500">*</span>}
       </label>
-
       {children}
-
-      {error ? <p className="mt-1 text-[11px] font-bold text-red-200">{error}</p> : null}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {ayuda && !error && <p className="mt-1 text-xs text-gray-400">{ayuda}</p>}
     </div>
   );
 }
@@ -157,9 +163,9 @@ function Input({ error, className = "", ...props }) {
     <input
       {...props}
       className={cls(
-        "h-11 w-full rounded-xl border bg-white/10 px-3 text-sm font-bold text-white outline-none transition placeholder:text-white/35",
-        error ? "border-red-200 ring-2 ring-red-300/20" : "border-white/10 focus:border-white/40 focus:ring-2 focus:ring-white/10",
-        className,
+        "h-12 w-full rounded-xl border-2 bg-white px-4 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        error ? "border-red-300 focus:border-red-400" : "border-gray-200 hover:border-gray-300",
+        className
       )}
     />
   );
@@ -170,166 +176,85 @@ function Select({ error, className = "", children, ...props }) {
     <select
       {...props}
       className={cls(
-        "h-11 w-full rounded-xl border bg-[#0b1b54]/95 px-3 text-sm font-bold text-white outline-none transition",
-        error ? "border-red-200 ring-2 ring-red-300/20" : "border-white/10 focus:border-white/40 focus:ring-2 focus:ring-white/10",
-        className,
+        "h-12 w-full rounded-xl border-2 bg-white px-4 pr-10 text-sm text-gray-800 outline-none transition-all appearance-none cursor-pointer focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        error ? "border-red-300" : "border-gray-200 hover:border-gray-300",
+        className
       )}
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 1rem center",
+      }}
     >
       {children}
     </select>
   );
 }
 
-function Textarea({ className = "", ...props }) {
+function Textarea({ error, className = "", ...props }) {
   return (
     <textarea
       {...props}
       className={cls(
-        "min-h-[92px] w-full resize-y rounded-xl border border-white/10 bg-white/10 px-3 py-3 text-sm font-bold text-white outline-none placeholder:text-white/35 focus:border-white/40 focus:ring-2 focus:ring-white/10",
-        className,
+        "min-h-[92px] w-full resize-none rounded-xl border-2 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        error ? "border-red-300" : "border-gray-200 hover:border-gray-300",
+        className
       )}
     />
   );
 }
 
-function EstadoButton({ active, children, onClick, tone }) {
-  const activeClass = {
-    ok: "border-emerald-300/40 bg-emerald-400/20 text-emerald-100",
-    observacion: "border-amber-300/40 bg-amber-400/20 text-amber-100",
-    na: "border-slate-300/40 bg-slate-400/20 text-slate-100",
-  }[tone];
+// ─── Componente para opciones del checklist (3 botones) ──────────────────
+function OpcionChecklist({ label, value, onChange, obligatorio = false }) {
+  const opciones = [
+    { key: "ok", label: "Correcto", icon: CheckCircle2, color: "text-emerald-600 border-emerald-200 bg-emerald-50" },
+    { key: "observacion", label: "Observ.", icon: AlertCircle, color: "text-amber-600 border-amber-200 bg-amber-50" },
+    { key: "na", label: "N/A", icon: XCircle, color: "text-gray-400 border-gray-200 bg-gray-50" },
+  ];
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cls(
-        "h-9 rounded-xl border px-3 text-xs font-black transition",
-        active ? activeClass : "border-white/10 bg-white/10 text-white/55 hover:bg-white/20",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ChecklistCard({ checklist, onChange }) {
-  function setEstado(itemId, estado) {
-    onChange((prev) => {
-      const actual = prev[itemId] || { estado: "", comentario: "" };
-      const nextEstado = actual.estado === estado ? "" : estado;
-      const next = { ...prev, [itemId]: { ...actual, estado: nextEstado } };
-
-      if (!next[itemId].estado && !next[itemId].comentario) {
-        delete next[itemId];
-      }
-
-      return next;
-    });
-  }
-
-  function setComentario(itemId, comentario) {
-    onChange((prev) => {
-      const actual = prev[itemId] || { estado: "", comentario: "" };
-      const next = { ...prev, [itemId]: { ...actual, comentario } };
-
-      if (!next[itemId].estado && !next[itemId].comentario) {
-        delete next[itemId];
-      }
-
-      return next;
-    });
-  }
-
-  function marcarSeccion(items, estado) {
-    onChange((prev) => {
-      const next = { ...prev };
-
-      items.forEach(([itemId]) => {
-        next[itemId] = {
-          ...(next[itemId] || { comentario: "" }),
-          estado,
-        };
-      });
-
-      return next;
-    });
-  }
-
-  return (
-    <div className="space-y-3">
-      {CHECKLIST_VOLVO.map((section) => (
-        <section key={section.titulo} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06]">
-          <div className="flex flex-col gap-2 border-b border-white/10 bg-white/10 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-black text-white">{section.titulo}</h3>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => marcarSeccion(section.items, "ok")}
-                className="rounded-xl border border-emerald-300/30 bg-emerald-400/15 px-3 py-1.5 text-xs font-black text-emerald-100"
-              >
-                Todo OK
-              </button>
-
-              <button
-                type="button"
-                onClick={() => marcarSeccion(section.items, "na")}
-                className="rounded-xl border border-slate-300/30 bg-slate-400/15 px-3 py-1.5 text-xs font-black text-slate-100"
-              >
-                Todo N/A
-              </button>
-            </div>
-          </div>
-
-          <div className="divide-y divide-white/10">
-            {section.items.map(([itemId, description]) => {
-              const current = checklist[itemId] || { estado: "", comentario: "" };
-              const mostrarComentario = current.estado === "observacion";
-
-              return (
-                <div key={itemId} className="grid gap-3 p-3 lg:grid-cols-[1fr_310px]">
-                  <div>
-                    <p className="text-sm font-bold leading-snug text-white/85">{description}</p>
-
-                    {mostrarComentario ? (
-                      <input
-                        value={current.comentario || ""}
-                        onChange={(event) => setComentario(itemId, event.target.value)}
-                        placeholder="Comentario de la observación..."
-                        className="mt-2 h-10 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-sm font-semibold text-white outline-none placeholder:text-white/35"
-                      />
-                    ) : null}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <EstadoButton active={current.estado === "ok"} tone="ok" onClick={() => setEstado(itemId, "ok")}>
-                      Correcto
-                    </EstadoButton>
-                    <EstadoButton active={current.estado === "observacion"} tone="observacion" onClick={() => setEstado(itemId, "observacion")}>
-                      Observ.
-                    </EstadoButton>
-                    <EstadoButton active={current.estado === "na"} tone="na" onClick={() => setEstado(itemId, "na")}>
-                      N/A
-                    </EstadoButton>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+    <div className="rounded-xl border-2 border-gray-200 bg-white p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+        {obligatorio && (
+          <span className="text-[10px] font-bold uppercase text-amber-500">*Obligatorio</span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        {opciones.map(({ key, label: optLabel, icon: Icon, color }) => {
+          const selected = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              className={cls(
+                "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-xs font-semibold transition-all",
+                selected
+                  ? color
+                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {optLabel}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
+// ─── EvidenciasPicker (adaptado al nuevo estilo) ────────────────────────
 function EvidenciasPicker({ evidencias, setEvidencias }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-      <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#06122f]/60 px-4 py-5 text-center transition hover:bg-white/10">
-        <Camera className="mb-2 h-7 w-7 text-white/70" />
-        <span className="text-sm font-black text-white">Agregar evidencia</span>
-        <span className="mt-1 text-xs font-semibold text-white/50">Fotos de carrocería, tablero, daños o pertenencias.</span>
+    <div className="rounded-xl border-2 border-gray-200 bg-white p-4">
+      <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center transition hover:bg-gray-100">
+        <Camera className="mb-2 h-7 w-7 text-gray-400" />
+        <span className="text-sm font-bold text-gray-600">Agregar evidencia</span>
+        <span className="mt-1 text-xs font-medium text-gray-400">
+          Fotos de carrocería, tablero, daños o pertenencias.
+        </span>
         <input
           type="file"
           accept="image/*"
@@ -343,7 +268,10 @@ function EvidenciasPicker({ evidencias, setEvidencias }) {
       {evidencias.length ? (
         <div className="mt-3 grid gap-2">
           {evidencias.map((file, index) => (
-            <div key={`${file.name}-${index}`} className="truncate rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white/80">
+            <div
+              key={`${file.name}-${index}`}
+              className="truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700"
+            >
               {file.name}
             </div>
           ))}
@@ -353,6 +281,7 @@ function EvidenciasPicker({ evidencias, setEvidencias }) {
   );
 }
 
+// ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
 export default function App() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [checklist, setChecklist] = useState({});
@@ -382,6 +311,38 @@ export default function App() {
     setOk(false);
   }
 
+  function setEstadoItem(itemId, estado) {
+    setChecklist((prev) => {
+      const actual = prev[itemId] || { estado: "", comentario: "" };
+      const nextEstado = actual.estado === estado ? "" : estado;
+      const next = { ...prev, [itemId]: { ...actual, estado: nextEstado } };
+      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
+      return next;
+    });
+  }
+
+  function setComentarioItem(itemId, comentario) {
+    setChecklist((prev) => {
+      const actual = prev[itemId] || { estado: "", comentario: "" };
+      const next = { ...prev, [itemId]: { ...actual, comentario } };
+      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
+      return next;
+    });
+  }
+
+  function marcarSeccion(items, estado) {
+    setChecklist((prev) => {
+      const next = { ...prev };
+      items.forEach(([itemId]) => {
+        next[itemId] = {
+          ...(next[itemId] || { comentario: "" }),
+          estado,
+        };
+      });
+      return next;
+    });
+  }
+
   async function submit(event) {
     event.preventDefault();
     setMensaje("");
@@ -403,7 +364,7 @@ export default function App() {
       });
 
       setOk(true);
-      setMensaje("Recepción guardada correctamente.");
+      setMensaje("✅ Recepción guardada correctamente.");
       setForm(FORM_INICIAL);
       setChecklist({});
       setEvidencias([]);
@@ -416,208 +377,340 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div className="fixed inset-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${fondo3})` }}
-        />
-        <div className="absolute inset-0 bg-[#061126]/75" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(44,91,187,0.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.12),_transparent_28%)]" />
-      </div>
-
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl items-center justify-center px-2 py-4 sm:px-4">
-        <form
-          onSubmit={submit}
-          className="w-full overflow-hidden rounded-3xl border border-white/10 bg-white/10 p-3 shadow-[0_30px_90px_-25px_rgba(0,0,0,0.65)] backdrop-blur-md sm:p-5"
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-4">
+      <div className="mx-auto max-w-7xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/60"
         >
-          <header className="mb-4 text-center">
-            <span className="inline-flex rounded-full border border-white/40 bg-white/10 px-3 py-1 text-[11px] font-bold tracking-wide text-white">
-              Automotriz R&amp;R · Volvo
-            </span>
+          {/* ═══ HEADER — estilo VOLVO ═══ */}
+          <div className="relative overflow-hidden bg-[#1a2a3a] px-8 py-6 md:px-12 md:py-8">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+            <div className="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-amber-400/5 blur-2xl" />
 
-            <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
-              Recepción de vehículo
-            </h1>
+            <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+               <h1
+                  className="text-5xl font-extralight tracking-[0.6em] text-white uppercase"
+                  style={{ fontFamily: "Georgia, serif" }}
+                >
+                  VOLVO
+                </h1>
+               <p
+                  className="text-xs font-light uppercase tracking-[0.25em] text-white"
+                  style={{
+                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif"
+                  }}
+                >
+                  RECEPCION DE VEHICULOS
+                </p>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-5 py-2.5 backdrop-blur">
+                <Sparkles className="h-4 w-4 text-amber-400" />
+                <span className="text-sm font-medium text-white/80">
+                  Automotriz R&amp;R
+                </span>
+              </div>
+            </div>
+          </div>
 
-            <p className="mt-1 text-sm font-semibold text-white/60">
+          {/* ═══ SUBHEADER ═══ */}
+          <div className="border-b border-gray-100 bg-gray-50/50 px-8 py-4 md:px-12">
+            <p className="text-sm text-gray-600">
               Datos generales, checklist y evidencia fotográfica.
             </p>
-          </header>
+          </div>
 
-          {mensaje ? (
+          {/* ═══ MENSAJE ═══ */}
+          {mensaje && (
             <div
               className={cls(
-                "mb-4 rounded-2xl border px-4 py-3 text-sm font-black",
-                ok ? "border-emerald-300/30 bg-emerald-400/15 text-emerald-100" : "border-red-300/30 bg-red-400/15 text-red-100",
+                "mx-8 mt-6 rounded-xl border px-5 py-3.5 text-sm font-medium md:mx-12",
+                ok
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700"
               )}
             >
               {mensaje}
             </div>
-          ) : null}
+          )}
 
-          <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-            <aside className="space-y-4">
-              <section className="rounded-3xl border border-white/10 bg-[#06122f]/70 p-4">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-white/70">
-                  <UserRound className="h-4 w-4" />
-                  Datos generales
-                </h2>
+          {/* ═══ FORMULARIO ═══ */}
+          <form onSubmit={submit} className="p-6 md:p-10">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
+              {/* ── Columna izquierda: Datos generales y vehículo ── */}
+              <div className="space-y-6">
+                {/* Datos generales */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                    <UserRound className="h-4 w-4" />
+                    Datos generales
+                  </h2>
 
-                <div className="grid gap-3">
-                  <Field label="Dealer" icon={Building2}>
-                    <Input value={form.agencia} disabled />
-                  </Field>
+                  <div className="grid gap-4">
+                    <Campo label="Dealer">
+                      <Input value={form.agencia} disabled className="bg-gray-50 cursor-not-allowed" />
+                    </Campo>
 
-                  <Field label="Cliente" icon={UserRound} error={errores.nombre}>
-                    <Input
-                      value={form.nombre}
-                      error={errores.nombre}
-                      onChange={(event) => setField("nombre", event.target.value.toUpperCase())}
-                      placeholder="NOMBRE COMPLETO"
-                    />
-                  </Field>
+                    <Campo label="Cliente" requerido error={errores.nombre}>
+                      <Input
+                        value={form.nombre}
+                        error={errores.nombre}
+                        onChange={(event) => setField("nombre", event.target.value.toUpperCase())}
+                        placeholder="NOMBRE COMPLETO"
+                      />
+                    </Campo>
 
-                  <Field label="Teléfono" icon={Phone} error={errores.telefono}>
-                    <Input
-                      value={form.telefono}
-                      error={errores.telefono}
-                      onChange={(event) => setField("telefono", soloNumeros(event.target.value).slice(0, 12))}
-                      inputMode="numeric"
-                      placeholder="2711234567"
-                    />
-                  </Field>
+                    <Campo label="Teléfono" requerido error={errores.telefono} ayuda="10 dígitos o 52 + 10 dígitos">
+                      <Input
+                        value={form.telefono}
+                        error={errores.telefono}
+                        onChange={(event) => setField("telefono", soloNumeros(event.target.value).slice(0, 12))}
+                        inputMode="numeric"
+                        placeholder="2711234567"
+                      />
+                    </Campo>
 
-                  <Field label="Correo" icon={Mail} error={errores.correo}>
-                    <Input
-                      type="email"
-                      value={form.correo}
-                      error={errores.correo}
-                      onChange={(event) => setField("correo", event.target.value)}
-                      placeholder="correo@dominio.com"
-                    />
-                  </Field>
+                    <Campo label="Correo" error={errores.correo}>
+                      <Input
+                        type="email"
+                        value={form.correo}
+                        error={errores.correo}
+                        onChange={(event) => setField("correo", event.target.value)}
+                        placeholder="correo@dominio.com"
+                      />
+                    </Campo>
 
-                  <Field label="PST" icon={UserRound} error={errores.asesor}>
-                    <Select
-                      value={form.asesor_servicio}
-                      error={errores.asesor}
-                      onChange={(event) => setField("asesor_servicio", event.target.value)}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {ASESORES_VOLVO.map((asesor) => (
-                        <option key={asesor} value={asesor}>
-                          {asesor}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+                    <Campo label="Asesor" requerido error={errores.asesor}>
+                      <Select
+                        value={form.asesor_servicio}
+                        error={errores.asesor}
+                        onChange={(event) => setField("asesor_servicio", event.target.value)}
+                      >
+                        <option value="">Seleccionar...</option>
+                        {ASESORES_VOLVO.map((asesor) => (
+                          <option key={asesor} value={asesor}>
+                            {asesor}
+                          </option>
+                        ))}
+                      </Select>
+                    </Campo>
 
-                  <Field label="Fecha recepción" icon={ClipboardList} error={errores.fecha}>
-                    <Input
-                      type="datetime-local"
-                      value={form.fecha_hora_recepcion}
-                      error={errores.fecha}
-                      onChange={(event) => setField("fecha_hora_recepcion", event.target.value)}
-                    />
-                  </Field>
+                    <Campo label="Fecha recepción" requerido error={errores.fecha}>
+                      <Input
+                        type="datetime-local"
+                        value={form.fecha_hora_recepcion}
+                        error={errores.fecha}
+                        onChange={(event) => setField("fecha_hora_recepcion", event.target.value)}
+                      />
+                    </Campo>
 
-                  <Field label="Contacto preferido" icon={MessageSquareText}>
-                    <Select
-                      value={form.metodo_contacto_preferido}
-                      onChange={(event) => setField("metodo_contacto_preferido", event.target.value)}
-                    >
-                      {METODOS_CONTACTO.map((metodo) => (
-                        <option key={metodo.value} value={metodo.value}>
-                          {metodo.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+                    <Campo label="Contacto preferido">
+                      <Select
+                        value={form.metodo_contacto_preferido}
+                        onChange={(event) => setField("metodo_contacto_preferido", event.target.value)}
+                      >
+                        {METODOS_CONTACTO.map((metodo) => (
+                          <option key={metodo.value} value={metodo.value}>
+                            {metodo.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Campo>
+                  </div>
                 </div>
-              </section>
 
-              <section className="rounded-3xl border border-white/10 bg-[#06122f]/70 p-4">
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-white/70">
-                  <CarFront className="h-4 w-4" />
-                  Vehículo
-                </h2>
+                {/* Vehículo */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                    <CarFront className="h-4 w-4" />
+                    Vehículo
+                  </h2>
 
-                <div className="grid gap-3">
-                  <Field label="Placas" icon={CarFront}>
-                    <Input
-                      value={form.placas}
-                      onChange={(event) => setField("placas", event.target.value.toUpperCase())}
-                      placeholder="ABC123"
-                    />
-                  </Field>
+                  <div className="grid gap-4">
+                    <Campo label="Placas">
+                      <Input
+                        value={form.placas}
+                        onChange={(event) => setField("placas", event.target.value.toUpperCase())}
+                        placeholder="ABC123"
+                      />
+                    </Campo>
 
-                  <Field label="VIN" icon={ClipboardList}>
-                    <Input
-                      value={form.vin}
-                      onChange={(event) => setField("vin", event.target.value.toUpperCase())}
-                      placeholder="VIN"
-                    />
-                  </Field>
+                    <Campo label="VIN">
+                      <Input
+                        value={form.vin}
+                        onChange={(event) => setField("vin", event.target.value.toUpperCase())}
+                        placeholder="VIN"
+                      />
+                    </Campo>
 
-                  <Field label="Modelo" icon={CarFront}>
-                    <Input
-                      value={form.modelo}
-                      onChange={(event) => setField("modelo", event.target.value)}
-                      placeholder="XC60"
-                    />
-                  </Field>
+                    <Campo label="Modelo">
+                      <Input
+                        value={form.modelo}
+                        onChange={(event) => setField("modelo", event.target.value)}
+                        placeholder="XC60"
+                      />
+                    </Campo>
 
-                  <Field label="Kilometraje" icon={Gauge}>
-                    <Input
-                      value={form.kilometraje}
-                      onChange={(event) => setField("kilometraje", soloNumeros(event.target.value))}
-                      inputMode="numeric"
-                      placeholder="35000"
-                    />
-                  </Field>
+                    <Campo label="Kilometraje">
+                      <Input
+                        value={form.kilometraje}
+                        onChange={(event) => setField("kilometraje", soloNumeros(event.target.value))}
+                        inputMode="numeric"
+                        placeholder="35000"
+                      />
+                    </Campo>
 
-                  <Field label="Observaciones" icon={MessageSquareText}>
-                    <Textarea
-                      value={form.observaciones}
-                      onChange={(event) => setField("observaciones", event.target.value)}
-                      placeholder="Comentarios generales de recepción..."
-                    />
-                  </Field>
+                    <Campo label="Observaciones">
+                      <Textarea
+                        value={form.observaciones}
+                        onChange={(event) => setField("observaciones", event.target.value)}
+                        placeholder="Comentarios generales de recepción..."
+                      />
+                    </Campo>
 
-                  <EvidenciasPicker evidencias={evidencias} setEvidencias={setEvidencias} />
+                    <EvidenciasPicker evidencias={evidencias} setEvidencias={setEvidencias} />
+                  </div>
                 </div>
-              </section>
-            </aside>
-
-            <section className="rounded-3xl border border-white/10 bg-[#06122f]/70 p-4">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-white/70">
-                  <ClipboardList className="h-4 w-4" />
-                  Checklist de recepción
-                </h2>
-
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#212721]">
-                  {progress.completados}/{progress.total} completados
-                </span>
               </div>
 
-              <ChecklistCard checklist={checklist} onChange={setChecklist} />
-            </section>
-          </div>
+              {/* ── Columna derecha: Checklist ── */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                    <ClipboardList className="h-4 w-4" />
+                    Checklist de recepción
+                  </h2>
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
+                    {progress.completados}/{progress.total} completados
+                  </span>
+                </div>
 
-          <div className="sticky bottom-2 mt-4 rounded-2xl border border-white/10 bg-[#06122f]/90 p-3 backdrop-blur-xl">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-black text-[#212721] transition hover:bg-white/90 disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {saving ? "Guardando..." : "Guardar recepción"}
-            </button>
-          </div>
-        </form>
-      </main>
+                <div className="space-y-4">
+                  {CHECKLIST_VOLVO.map((section) => (
+                    <section
+                      key={section.titulo}
+                      className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                    >
+                      <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="text-sm font-bold text-gray-700">{section.titulo}</h3>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => marcarSeccion(section.items, "ok")}
+                            className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                          >
+                            Todo OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => marcarSeccion(section.items, "na")}
+                            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 hover:bg-gray-200 transition"
+                          >
+                            Todo N/A
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-gray-100">
+                        {section.items.map(([itemId, description]) => {
+                          const current = checklist[itemId] || { estado: "", comentario: "" };
+                          const mostrarComentario = current.estado === "observacion";
+
+                          return (
+                            <div key={itemId} className="grid gap-3 p-4 lg:grid-cols-[1fr_280px]">
+                              <div>
+                                <p className="text-sm font-medium leading-snug text-gray-700">
+                                  {description}
+                                </p>
+                                {mostrarComentario && (
+                                  <input
+                                    value={current.comentario || ""}
+                                    onChange={(e) => setComentarioItem(itemId, e.target.value)}
+                                    placeholder="Comentario de la observación..."
+                                    className="mt-2 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#1a2a3a] focus:ring-2 focus:ring-[#1a2a3a]/10"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEstadoItem(itemId, "ok")}
+                                  className={cls(
+                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
+                                    current.estado === "ok"
+                                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                                  )}
+                                >
+                                  <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />
+                                  Correcto
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEstadoItem(itemId, "observacion")}
+                                  className={cls(
+                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
+                                    current.estado === "observacion"
+                                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                                  )}
+                                >
+                                  <AlertCircle className="inline h-3.5 w-3.5 mr-1" />
+                                  Observ.
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEstadoItem(itemId, "na")}
+                                  className={cls(
+                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
+                                    current.estado === "na"
+                                      ? "border-gray-200 bg-gray-50 text-gray-600"
+                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                                  )}
+                                >
+                                  <XCircle className="inline h-3.5 w-3.5 mr-1" />
+                                  N/A
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ FOOTER — Botón guardar ═══ */}
+            <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl bg-gray-50/80 px-6 py-4 md:flex-row">
+              <p className="text-sm text-gray-500">
+                📋 Revisa los datos y guarda el registro.
+              </p>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1a2a3a] px-8 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#2a3a4a] hover:shadow-lg hover:shadow-[#1a2a3a]/20 disabled:opacity-60 md:w-auto"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    Guardar recepción
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
     </div>
   );
 }
