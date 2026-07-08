@@ -1,5 +1,6 @@
 // src/App.jsx
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   Building2,
   Camera,
@@ -12,17 +13,14 @@ import {
   MessageSquareText,
   Phone,
   Save,
-  UserRound,
   Sparkles,
+  UserRound,
   ArrowRight,
-  XCircle,
-  AlertCircle,
 } from "lucide-react";
-import { motion } from "framer-motion";
 
 import { apiRecepcionVolvo } from "./lib/apiRecepcionVolvo";
 
-// ─── CONSTANTES ──────────────────────────────────────────────────────────────
+// ─── CONSTANTES ───
 const ASESORES_VOLVO = [
   "Edgar Valencia",
   "Carlos Macedonio",
@@ -94,6 +92,14 @@ const CHECKLIST_VOLVO = [
   },
 ];
 
+function dateTimeLocalActual() {
+  const date = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+}
+
 const FORM_INICIAL = {
   agencia: "Volvo",
   nombre: "",
@@ -109,45 +115,58 @@ const FORM_INICIAL = {
   observaciones: "",
 };
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-function dateTimeLocalActual() {
-  const date = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}`;
+// ─── UTILITY FUNCTIONS ───
+function cls(...clases) {
+  return clases.filter(Boolean).join(" ");
 }
-
-function soloNumeros(value) {
-  return String(value || "").replace(/\D/g, "");
+function soloNumeros(valor) {
+  return String(valor ?? "").replace(/\D/g, "");
 }
-
-function normalizarTelefonoMx(value) {
-  const digits = soloNumeros(value);
-  if (digits.length === 10) return `52${digits}`;
-  return digits;
+function normalizarTelefonoMx(valor) {
+  const telefono = soloNumeros(valor);
+  if (telefono.length === 10) return `52${telefono}`;
+  if (telefono.length === 12 && telefono.startsWith("52")) return telefono;
+  return telefono;
 }
-
-function telefonoValido(value) {
-  const digits = soloNumeros(value);
-  return digits.length === 10 || (digits.length === 12 && digits.startsWith("52"));
+function validarTelefono(valor) {
+  const telefono = soloNumeros(valor);
+  if (telefono.length === 10) return true;
+  if (telefono.length === 12 && telefono.startsWith("52")) return true;
+  return false;
 }
-
-function emailValido(value) {
-  const email = String(value || "").trim();
+function mensajeTelefono(valor) {
+  const telefono = soloNumeros(valor);
+  if (!telefono) return "Captura un teléfono numérico.";
+  if (telefono.length < 10) return "El teléfono debe tener mínimo 10 dígitos.";
+  if (telefono.length === 11) return "Usa 10 dígitos o 52 + 10 dígitos.";
+  if (telefono.length === 12 && !telefono.startsWith("52")) {
+    return "Si tiene 12 dígitos debe iniciar con 52.";
+  }
+  if (telefono.length > 12) return "Máximo 12 dígitos.";
+  return "Teléfono inválido.";
+}
+function validarEmail(valor) {
+  const email = String(valor ?? "").trim();
   if (!email) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
-
-function cls(...values) {
-  return values.filter(Boolean).join(" ");
+function obtenerErrores(form) {
+  const errores = {};
+  if (!String(form.nombre ?? "").trim()) errores.nombre = "Captura el nombre del cliente.";
+  if (!validarTelefono(form.telefono)) errores.telefono = mensajeTelefono(form.telefono);
+  if (!validarEmail(form.correo)) errores.correo = "Correo inválido.";
+  if (!form.asesor_servicio) errores.asesor_servicio = "Selecciona asesor de servicio.";
+  if (!form.fecha_hora_recepcion) errores.fecha_hora_recepcion = "Captura la fecha de recepción.";
+  return errores;
 }
 
-// ─── COMPONENTES REUTILIZABLES (con el nuevo estilo) ──────────────────────
-function Campo({ label, requerido, error, ayuda, children, className = "" }) {
+// ─── COMPONENTES BASE (estilo Tráfico de Piso) ───
+
+function Campo({ label, requerido, error, ayuda, icon: Icon, children, className = "" }) {
   return (
     <div className={cls("min-w-0", className)}>
-      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        {Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}
         {label}
         {requerido && <span className="ml-1 text-amber-500">*</span>}
       </label>
@@ -163,20 +182,21 @@ function Input({ error, className = "", ...props }) {
     <input
       {...props}
       className={cls(
-        "h-12 w-full rounded-xl border-2 bg-white px-4 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        "h-12 w-full rounded-2xl border-2 bg-white px-4 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
         error ? "border-red-300 focus:border-red-400" : "border-gray-200 hover:border-gray-300",
+        props.disabled && "cursor-not-allowed opacity-60",
         className
       )}
     />
   );
 }
 
-function Select({ error, className = "", children, ...props }) {
+function Select({ error, children, className = "", ...props }) {
   return (
     <select
       {...props}
       className={cls(
-        "h-12 w-full rounded-xl border-2 bg-white px-4 pr-10 text-sm text-gray-800 outline-none transition-all appearance-none cursor-pointer focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        "h-12 w-full rounded-2xl border-2 bg-white px-4 pr-10 text-sm text-gray-800 outline-none transition-all appearance-none cursor-pointer focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
         error ? "border-red-300" : "border-gray-200 hover:border-gray-300",
         className
       )}
@@ -196,7 +216,7 @@ function Textarea({ error, className = "", ...props }) {
     <textarea
       {...props}
       className={cls(
-        "min-h-[92px] w-full resize-none rounded-xl border-2 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
+        "min-h-[92px] w-full resize-none rounded-2xl border-2 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-[#1a2a3a] focus:shadow-[0_0_0_4px_rgba(26,42,58,0.08)]",
         error ? "border-red-300" : "border-gray-200 hover:border-gray-300",
         className
       )}
@@ -204,54 +224,134 @@ function Textarea({ error, className = "", ...props }) {
   );
 }
 
-// ─── Componente para opciones del checklist (3 botones) ──────────────────
-function OpcionChecklist({ label, value, onChange, obligatorio = false }) {
-  const opciones = [
-    { key: "ok", label: "Correcto", icon: CheckCircle2, color: "text-emerald-600 border-emerald-200 bg-emerald-50" },
-    { key: "observacion", label: "Observ.", icon: AlertCircle, color: "text-amber-600 border-amber-200 bg-amber-50" },
-    { key: "na", label: "N/A", icon: XCircle, color: "text-gray-400 border-gray-200 bg-gray-50" },
-  ];
+function EstadoButton({ active, children, onClick, tone }) {
+  const activeClass = {
+    ok: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    observacion: "border-amber-300 bg-amber-50 text-amber-700",
+    na: "border-gray-300 bg-gray-100 text-gray-600",
+  }[tone];
 
   return (
-    <div className="rounded-xl border-2 border-gray-200 bg-white p-4">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
-        {obligatorio && (
-          <span className="text-[10px] font-bold uppercase text-amber-500">*Obligatorio</span>
-        )}
-      </div>
-      <div className="flex gap-2">
-        {opciones.map(({ key, label: optLabel, icon: Icon, color }) => {
-          const selected = value === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onChange(key)}
-              className={cls(
-                "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-xs font-semibold transition-all",
-                selected
-                  ? color
-                  : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {optLabel}
-            </button>
-          );
-        })}
-      </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cls(
+        "h-9 rounded-xl border-2 px-3 text-xs font-bold transition-all",
+        active ? activeClass : "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ChecklistCard({ checklist, onChange }) {
+  function setEstado(itemId, estado) {
+    onChange((prev) => {
+      const actual = prev[itemId] || { estado: "", comentario: "" };
+      const nextEstado = actual.estado === estado ? "" : estado;
+      const next = { ...prev, [itemId]: { ...actual, estado: nextEstado } };
+      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
+      return next;
+    });
+  }
+
+  function setComentario(itemId, comentario) {
+    onChange((prev) => {
+      const actual = prev[itemId] || { estado: "", comentario: "" };
+      const next = { ...prev, [itemId]: { ...actual, comentario } };
+      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
+      return next;
+    });
+  }
+
+  function marcarSeccion(items, estado) {
+    onChange((prev) => {
+      const next = { ...prev };
+      items.forEach(([itemId]) => {
+        next[itemId] = { ...(next[itemId] || { comentario: "" }), estado };
+      });
+      return next;
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {CHECKLIST_VOLVO.map((section) => (
+        <section
+          key={section.titulo}
+          className="overflow-hidden rounded-2xl border-2 border-gray-200 bg-white"
+        >
+          <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-sm font-bold text-[#1a2a3a]">{section.titulo}</h3>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => marcarSeccion(section.items, "ok")}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                Todo OK
+              </button>
+              <button
+                type="button"
+                onClick={() => marcarSeccion(section.items, "na")}
+                className="rounded-xl border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:bg-gray-200"
+              >
+                Todo N/A
+              </button>
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {section.items.map(([itemId, description]) => {
+              const current = checklist[itemId] || { estado: "", comentario: "" };
+              const mostrarComentario = current.estado === "observacion";
+
+              return (
+                <div key={itemId} className="grid gap-3 p-4 lg:grid-cols-[1fr_310px]">
+                  <div>
+                    <p className="text-sm font-medium leading-snug text-gray-700">{description}</p>
+                    {mostrarComentario ? (
+                      <input
+                        value={current.comentario || ""}
+                        onChange={(event) => setComentario(itemId, event.target.value)}
+                        placeholder="Comentario de la observación..."
+                        className="mt-2 h-10 w-full rounded-xl border-2 border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1a2a3a]"
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <EstadoButton active={current.estado === "ok"} tone="ok" onClick={() => setEstado(itemId, "ok")}>
+                      Correcto
+                    </EstadoButton>
+                    <EstadoButton
+                      active={current.estado === "observacion"}
+                      tone="observacion"
+                      onClick={() => setEstado(itemId, "observacion")}
+                    >
+                      Observ.
+                    </EstadoButton>
+                    <EstadoButton active={current.estado === "na"} tone="na" onClick={() => setEstado(itemId, "na")}>
+                      N/A
+                    </EstadoButton>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
 
-// ─── EvidenciasPicker (adaptado al nuevo estilo) ────────────────────────
 function EvidenciasPicker({ evidencias, setEvidencias }) {
   return (
-    <div className="rounded-xl border-2 border-gray-200 bg-white p-4">
-      <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center transition hover:bg-gray-100">
+    <div className="rounded-2xl border-2 border-gray-200 bg-white p-4">
+      <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/70 px-4 py-5 text-center transition hover:bg-gray-100">
         <Camera className="mb-2 h-7 w-7 text-gray-400" />
-        <span className="text-sm font-bold text-gray-600">Agregar evidencia</span>
+        <span className="text-sm font-bold text-[#1a2a3a]">Agregar evidencia</span>
         <span className="mt-1 text-xs font-medium text-gray-400">
           Fotos de carrocería, tablero, daños o pertenencias.
         </span>
@@ -270,9 +370,10 @@ function EvidenciasPicker({ evidencias, setEvidencias }) {
           {evidencias.map((file, index) => (
             <div
               key={`${file.name}-${index}`}
-              className="truncate rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700"
+              className="flex items-center gap-2 truncate rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600"
             >
-              {file.name}
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <span className="truncate">{file.name}</span>
             </div>
           ))}
         </div>
@@ -281,154 +382,126 @@ function EvidenciasPicker({ evidencias, setEvidencias }) {
   );
 }
 
-// ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
-export default function App() {
+// ─── COMPONENTE PRINCIPAL ───
+
+export default function RecepcionVolvo() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [checklist, setChecklist] = useState({});
   const [evidencias, setEvidencias] = useState([]);
-  const [saving, setSaving] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [mostrarErrores, setMostrarErrores] = useState(false);
   const [mensaje, setMensaje] = useState("");
-  const [ok, setOk] = useState(false);
+  const [guardado, setGuardado] = useState(false);
 
-  const errores = useMemo(() => {
-    const result = {};
-    if (!form.nombre.trim()) result.nombre = "Requerido";
-    if (!telefonoValido(form.telefono)) result.telefono = "Teléfono inválido";
-    if (!emailValido(form.correo)) result.correo = "Correo inválido";
-    if (!form.fecha_hora_recepcion) result.fecha = "Requerido";
-    if (!form.asesor_servicio) result.asesor = "Selecciona asesor";
-    return result;
-  }, [form]);
+  const errores = useMemo(() => obtenerErrores(form), [form]);
+  const hayErrores = Object.keys(errores).length > 0;
 
-  const progress = useMemo(() => {
+  const progreso = useMemo(() => {
     const ids = CHECKLIST_VOLVO.flatMap((section) => section.items.map(([id]) => id));
     const completados = ids.filter((id) => ["ok", "observacion", "na"].includes(checklist[id]?.estado)).length;
     return { completados, total: ids.length };
   }, [checklist]);
 
-  function setField(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setOk(false);
+  function updateField(campo, valor) {
+    setForm((prev) => ({ ...prev, [campo]: valor }));
+    setGuardado(false);
   }
 
-  function setEstadoItem(itemId, estado) {
-    setChecklist((prev) => {
-      const actual = prev[itemId] || { estado: "", comentario: "" };
-      const nextEstado = actual.estado === estado ? "" : estado;
-      const next = { ...prev, [itemId]: { ...actual, estado: nextEstado } };
-      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
-      return next;
-    });
+  function error(campo) {
+    return mostrarErrores ? errores[campo] : "";
   }
 
-  function setComentarioItem(itemId, comentario) {
-    setChecklist((prev) => {
-      const actual = prev[itemId] || { estado: "", comentario: "" };
-      const next = { ...prev, [itemId]: { ...actual, comentario } };
-      if (!next[itemId].estado && !next[itemId].comentario) delete next[itemId];
-      return next;
-    });
-  }
-
-  function marcarSeccion(items, estado) {
-    setChecklist((prev) => {
-      const next = { ...prev };
-      items.forEach(([itemId]) => {
-        next[itemId] = {
-          ...(next[itemId] || { comentario: "" }),
-          estado,
-        };
-      });
-      return next;
-    });
-  }
-
-  async function submit(event) {
-    event.preventDefault();
+  async function enviarFormulario(e) {
+    e.preventDefault();
+    setMostrarErrores(true);
     setMensaje("");
-    setOk(false);
+    setGuardado(false);
 
-    if (Object.keys(errores).length) {
-      setMensaje(Object.values(errores)[0]);
+    const erroresActuales = obtenerErrores(form);
+    if (Object.keys(erroresActuales).length > 0) {
+      setMensaje(Object.values(erroresActuales)[0]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    setSaving(true);
-
     try {
+      setEnviando(true);
       await apiRecepcionVolvo.create({
         ...form,
         telefono: normalizarTelefonoMx(form.telefono),
         checklist,
         evidencias_nuevas: evidencias,
       });
-
-      setOk(true);
+      setGuardado(true);
       setMensaje("✅ Recepción guardada correctamente.");
       setForm(FORM_INICIAL);
       setChecklist({});
       setEvidencias([]);
-    } catch (error) {
-      console.error(error);
-      setMensaje(error.message || "No fue posible guardar la recepción.");
+      setMostrarErrores(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      console.error(err);
+      setMensaje(err.message || "No fue posible guardar la recepción.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
-      setSaving(false);
+      setEnviando(false);
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-8 px-4">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
           className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/60"
         >
-          {/* ═══ HEADER — estilo VOLVO ═══ */}
+          {/* HEADER — Estilo Volvo */}
           <div className="relative overflow-hidden bg-[#1a2a3a] px-8 py-6 md:px-12 md:py-8">
             <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
             <div className="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-amber-400/5 blur-2xl" />
 
             <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
-               <h1
+                <h1
                   className="text-5xl font-extralight tracking-[0.6em] text-white uppercase"
                   style={{ fontFamily: "Georgia, serif" }}
                 >
                   VOLVO
                 </h1>
-               <p
+                <p
                   className="text-xs font-light uppercase tracking-[0.25em] text-white"
-                  style={{
-                    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif"
-                  }}
+                  style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
                 >
-                  RECEPCION DE VEHICULOS
+                  RECEPCIÓN DE VEHÍCULO
                 </p>
               </div>
               <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-5 py-2.5 backdrop-blur">
                 <Sparkles className="h-4 w-4 text-amber-400" />
-                <span className="text-sm font-medium text-white/80">
-                  Automotriz R&amp;R
-                </span>
+                <span className="text-sm font-medium text-white/80">Automotriz R&amp;R</span>
               </div>
             </div>
           </div>
 
-          {/* ═══ SUBHEADER ═══ */}
+          {/* SUBHEADER */}
           <div className="border-b border-gray-100 bg-gray-50/50 px-8 py-4 md:px-12">
-            <p className="text-sm text-gray-600">
-              Datos generales, checklist y evidencia fotográfica.
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Captura los datos generales, el checklist de recepción y la evidencia fotográfica.
+              </p>
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#1a2a3a] px-3 py-1 text-xs font-bold text-white">
+                {progreso.completados}/{progreso.total} checklist
+              </span>
+            </div>
           </div>
 
-          {/* ═══ MENSAJE ═══ */}
+          {/* MENSAJE */}
           {mensaje && (
             <div
               className={cls(
-                "mx-8 mt-6 rounded-xl border px-5 py-3.5 text-sm font-medium md:mx-12",
-                ok
+                "mx-8 mt-6 rounded-2xl border px-5 py-3.5 text-sm font-medium md:mx-12",
+                guardado
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border-red-200 bg-red-50 text-red-700"
               )}
@@ -437,57 +510,61 @@ export default function App() {
             </div>
           )}
 
-          {/* ═══ FORMULARIO ═══ */}
-          <form onSubmit={submit} className="p-6 md:p-10">
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
-              {/* ── Columna izquierda: Datos generales y vehículo ── */}
+          {/* FORMULARIO */}
+          <form onSubmit={enviarFormulario} className="p-6 md:p-10">
+            <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+              {/* Columna izquierda: Datos generales + Vehículo */}
               <div className="space-y-6">
-                {/* Datos generales */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                <div className="rounded-3xl border-2 border-gray-100 bg-gray-50/40 p-5">
+                  <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1a2a3a]">
                     <UserRound className="h-4 w-4" />
                     Datos generales
                   </h2>
-
                   <div className="grid gap-4">
-                    <Campo label="Dealer">
-                      <Input value={form.agencia} disabled className="bg-gray-50 cursor-not-allowed" />
+                    <Campo label="Dealer" icon={Building2}>
+                      <Input value={form.agencia} disabled />
                     </Campo>
 
-                    <Campo label="Cliente" requerido error={errores.nombre}>
+                    <Campo label="Cliente" requerido icon={UserRound} error={error("nombre")}>
                       <Input
                         value={form.nombre}
-                        error={errores.nombre}
-                        onChange={(event) => setField("nombre", event.target.value.toUpperCase())}
+                        error={error("nombre")}
+                        onChange={(e) => updateField("nombre", e.target.value.toUpperCase())}
                         placeholder="NOMBRE COMPLETO"
                       />
                     </Campo>
 
-                    <Campo label="Teléfono" requerido error={errores.telefono} ayuda="10 dígitos o 52 + 10 dígitos">
+                    <Campo
+                      label="Teléfono"
+                      requerido
+                      icon={Phone}
+                      error={error("telefono")}
+                      ayuda="10 dígitos o 52 + 10 dígitos"
+                    >
                       <Input
                         value={form.telefono}
-                        error={errores.telefono}
-                        onChange={(event) => setField("telefono", soloNumeros(event.target.value).slice(0, 12))}
+                        error={error("telefono")}
+                        onChange={(e) => updateField("telefono", soloNumeros(e.target.value).slice(0, 12))}
                         inputMode="numeric"
                         placeholder="2711234567"
                       />
                     </Campo>
 
-                    <Campo label="Correo" error={errores.correo}>
+                    <Campo label="Correo" icon={Mail} error={error("correo")}>
                       <Input
                         type="email"
                         value={form.correo}
-                        error={errores.correo}
-                        onChange={(event) => setField("correo", event.target.value)}
+                        error={error("correo")}
+                        onChange={(e) => updateField("correo", e.target.value)}
                         placeholder="correo@dominio.com"
                       />
                     </Campo>
 
-                    <Campo label="Asesor" requerido error={errores.asesor}>
+                    <Campo label="PST" requerido icon={UserRound} error={error("asesor_servicio")}>
                       <Select
                         value={form.asesor_servicio}
-                        error={errores.asesor}
-                        onChange={(event) => setField("asesor_servicio", event.target.value)}
+                        error={error("asesor_servicio")}
+                        onChange={(e) => updateField("asesor_servicio", e.target.value)}
                       >
                         <option value="">Seleccionar...</option>
                         {ASESORES_VOLVO.map((asesor) => (
@@ -498,19 +575,24 @@ export default function App() {
                       </Select>
                     </Campo>
 
-                    <Campo label="Fecha recepción" requerido error={errores.fecha}>
+                    <Campo
+                      label="Fecha recepción"
+                      requerido
+                      icon={ClipboardList}
+                      error={error("fecha_hora_recepcion")}
+                    >
                       <Input
                         type="datetime-local"
                         value={form.fecha_hora_recepcion}
-                        error={errores.fecha}
-                        onChange={(event) => setField("fecha_hora_recepcion", event.target.value)}
+                        error={error("fecha_hora_recepcion")}
+                        onChange={(e) => updateField("fecha_hora_recepcion", e.target.value)}
                       />
                     </Campo>
 
-                    <Campo label="Contacto preferido">
+                    <Campo label="Contacto preferido" icon={MessageSquareText}>
                       <Select
                         value={form.metodo_contacto_preferido}
-                        onChange={(event) => setField("metodo_contacto_preferido", event.target.value)}
+                        onChange={(e) => updateField("metodo_contacto_preferido", e.target.value)}
                       >
                         {METODOS_CONTACTO.map((metodo) => (
                           <option key={metodo.value} value={metodo.value}>
@@ -522,52 +604,51 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Vehículo */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                <div className="rounded-3xl border-2 border-gray-100 bg-gray-50/40 p-5">
+                  <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1a2a3a]">
                     <CarFront className="h-4 w-4" />
                     Vehículo
                   </h2>
-
                   <div className="grid gap-4">
-                    <Campo label="Placas">
+                    <Campo label="Placas" icon={CarFront}>
                       <Input
                         value={form.placas}
-                        onChange={(event) => setField("placas", event.target.value.toUpperCase())}
+                        onChange={(e) => updateField("placas", e.target.value.toUpperCase())}
                         placeholder="ABC123"
                       />
                     </Campo>
 
-                    <Campo label="VIN">
+                    <Campo label="VIN" icon={ClipboardList}>
                       <Input
                         value={form.vin}
-                        onChange={(event) => setField("vin", event.target.value.toUpperCase())}
+                        onChange={(e) => updateField("vin", e.target.value.toUpperCase())}
                         placeholder="VIN"
                       />
                     </Campo>
 
-                    <Campo label="Modelo">
+                    <Campo label="Modelo" icon={CarFront}>
                       <Input
                         value={form.modelo}
-                        onChange={(event) => setField("modelo", event.target.value)}
+                        onChange={(e) => updateField("modelo", e.target.value)}
                         placeholder="XC60"
                       />
                     </Campo>
 
-                    <Campo label="Kilometraje">
+                    <Campo label="Kilometraje" icon={Gauge}>
                       <Input
                         value={form.kilometraje}
-                        onChange={(event) => setField("kilometraje", soloNumeros(event.target.value))}
+                        onChange={(e) => updateField("kilometraje", soloNumeros(e.target.value))}
                         inputMode="numeric"
                         placeholder="35000"
                       />
                     </Campo>
 
-                    <Campo label="Observaciones">
+                    <Campo label="Observaciones" icon={MessageSquareText}>
                       <Textarea
                         value={form.observaciones}
-                        onChange={(event) => setField("observaciones", event.target.value)}
+                        onChange={(e) => updateField("observaciones", e.target.value)}
                         placeholder="Comentarios generales de recepción..."
+                        rows={3}
                       />
                     </Campo>
 
@@ -576,126 +657,34 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── Columna derecha: Checklist ── */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              {/* Columna derecha: Checklist */}
+              <div className="rounded-3xl border-2 border-gray-100 bg-gray-50/40 p-5">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                  <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#1a2a3a]">
                     <ClipboardList className="h-4 w-4" />
                     Checklist de recepción
                   </h2>
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
-                    {progress.completados}/{progress.total} completados
+                  <span className="w-fit rounded-full bg-[#1a2a3a] px-3 py-1 text-xs font-bold text-white">
+                    {progreso.completados}/{progreso.total} completados
                   </span>
                 </div>
-
-                <div className="space-y-4">
-                  {CHECKLIST_VOLVO.map((section) => (
-                    <section
-                      key={section.titulo}
-                      className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                    >
-                      <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h3 className="text-sm font-bold text-gray-700">{section.titulo}</h3>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => marcarSeccion(section.items, "ok")}
-                            className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
-                          >
-                            Todo OK
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => marcarSeccion(section.items, "na")}
-                            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 hover:bg-gray-200 transition"
-                          >
-                            Todo N/A
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="divide-y divide-gray-100">
-                        {section.items.map(([itemId, description]) => {
-                          const current = checklist[itemId] || { estado: "", comentario: "" };
-                          const mostrarComentario = current.estado === "observacion";
-
-                          return (
-                            <div key={itemId} className="grid gap-3 p-4 lg:grid-cols-[1fr_280px]">
-                              <div>
-                                <p className="text-sm font-medium leading-snug text-gray-700">
-                                  {description}
-                                </p>
-                                {mostrarComentario && (
-                                  <input
-                                    value={current.comentario || ""}
-                                    onChange={(e) => setComentarioItem(itemId, e.target.value)}
-                                    placeholder="Comentario de la observación..."
-                                    className="mt-2 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#1a2a3a] focus:ring-2 focus:ring-[#1a2a3a]/10"
-                                  />
-                                )}
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setEstadoItem(itemId, "ok")}
-                                  className={cls(
-                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
-                                    current.estado === "ok"
-                                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-                                  )}
-                                >
-                                  <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />
-                                  Correcto
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEstadoItem(itemId, "observacion")}
-                                  className={cls(
-                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
-                                    current.estado === "observacion"
-                                      ? "border-amber-200 bg-amber-50 text-amber-700"
-                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-                                  )}
-                                >
-                                  <AlertCircle className="inline h-3.5 w-3.5 mr-1" />
-                                  Observ.
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEstadoItem(itemId, "na")}
-                                  className={cls(
-                                    "flex-1 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all",
-                                    current.estado === "na"
-                                      ? "border-gray-200 bg-gray-50 text-gray-600"
-                                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-                                  )}
-                                >
-                                  <XCircle className="inline h-3.5 w-3.5 mr-1" />
-                                  N/A
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
-                </div>
+                <ChecklistCard checklist={checklist} onChange={setChecklist} />
               </div>
             </div>
 
-            {/* ═══ FOOTER — Botón guardar ═══ */}
+            {/* FOOTER — Botón guardar */}
             <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl bg-gray-50/80 px-6 py-4 md:flex-row">
               <p className="text-sm text-gray-500">
-                📋 Revisa los datos y guarda el registro.
+                {mostrarErrores && hayErrores
+                  ? `⚠️ ${Object.values(errores)[0]}`
+                  : "📋 Revisa los datos y guarda la recepción."}
               </p>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={enviando}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1a2a3a] px-8 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#2a3a4a] hover:shadow-lg hover:shadow-[#1a2a3a]/20 disabled:opacity-60 md:w-auto"
               >
-                {saving ? (
+                {enviando ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Guardando...
